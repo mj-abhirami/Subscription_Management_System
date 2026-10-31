@@ -1,140 +1,118 @@
-import { useState } from "react";
-import Customers from "./pages/Customers";
 
+import { useState } from "react";
 import {
   BrowserRouter,
   Routes,
-  Route
+  Route,
+  Navigate,
 } from "react-router-dom";
 
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 
 import Dashboard from "./pages/Dashboard";
+import Login from "./pages/Login";
+import Customers from "./pages/Customers";
+import Products from "./pages/Products";
+import Plans from "./pages/Plans";
 import PlaceholderPage from "./pages/PlaceholderPage";
+import Subscriptions from "./pages/Subscriptions";
+import Quotations from "./pages/Quotations";
+import Invoices from "./pages/Invoices";
+import Payments from "./pages/Payments";
+import Discounts from "./pages/Discounts";
+import Analytics from "./pages/Analytics";
+import Settings from "./pages/Settings";
+
+// Protect pages that require authentication
+function ProtectedRoute({ children }) {
+  const token = localStorage.getItem("subsight_token");
+
+  return token ? children : <Navigate to="/login" replace />;
+}
+
+// Redirect logged-in users away from Login
+function PublicRoute({ children }) {
+  const token = localStorage.getItem("subsight_token");
+
+  return token ? <Navigate to="/" replace /> : children;
+}
 
 function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="app-layout">
-
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
 
       <div className="main-layout">
-
         <Topbar
           onMenuClick={() => setSidebarOpen(true)}
         />
 
         <main className="main-content">
-
           <Routes>
             <Route path="/" element={<Dashboard />} />
 
-            <Route
-              path="/customers"
-              element={
-                <Customers />
-              }
-            />
-
-            <Route
-              path="/products"
-              element={
-                <PlaceholderPage
-                  title="Products"
-                  description="Manage products, variants and pricing."
-                />
-              }
-            />
-
-            <Route
-              path="/plans"
-              element={
-                <PlaceholderPage
-                  title="Plans"
-                  description="Configure subscription plans and billing cycles."
-                />
-              }
-            />
+            <Route path="/customers" element={<Customers />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/plans" element={<Plans />} />
 
             <Route
               path="/subscriptions"
               element={
-                <PlaceholderPage
-                  title="Subscriptions"
-                  description="Manage subscription lifecycle and renewals."
-                />
+                <Subscriptions />
               }
             />
 
             <Route
               path="/quotations"
               element={
-                <PlaceholderPage
-                  title="Quotations"
-                  description="Create and manage customer quotations."
-                />
+                <Quotations />
               }
             />
 
             <Route
               path="/invoices"
               element={
-                <PlaceholderPage
-                  title="Invoices"
-                  description="Generate and manage customer invoices."
-                />
+                <Invoices />
               }
             />
 
             <Route
               path="/payments"
               element={
-                <PlaceholderPage
-                  title="Payments"
-                  description="Track and record customer payments."
-                />
+                <Payments />
               }
             />
 
             <Route
               path="/discounts"
               element={
-                <PlaceholderPage
-                  title="Discounts"
-                  description="Configure promotional discount rules."
-                />
+                <Discounts />
               }
             />
 
             <Route
               path="/analytics"
               element={
-                <PlaceholderPage
-                  title="Business Intelligence"
-                  description="Explore revenue intelligence and customer health."
-                />
+                <Analytics />
               }
             />
 
             <Route
               path="/settings"
               element={
-                <PlaceholderPage
-                  title="Settings"
-                  description="Manage your workspace preferences."
-                />
+                <Settings />
               }
             />
+
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-
         </main>
-
       </div>
     </div>
   );
@@ -143,7 +121,25 @@ function AppLayout() {
 function App() {
   return (
     <BrowserRouter>
-      <AppLayout />
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
+        />
+
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
     </BrowserRouter>
   );
 }
