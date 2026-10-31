@@ -1,5 +1,6 @@
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import api from "../services/api";
 import {
   Search,
   Plus,
@@ -9,6 +10,7 @@ import {
   CalendarDays,
   Clock,
   PauseCircle,
+  RefreshCw
 } from "lucide-react";
 
 function Plans() {
@@ -30,9 +32,33 @@ function Plans() {
     auto_close: false,
   });
 
-  const products = JSON.parse(
-    localStorage.getItem("subsight_products") || "[]"
-  );
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+
+      const [planResponse, productResponse] = await Promise.all([
+        api.get("/plans"),
+        api.get("/products")
+      ]);
+
+      setPlans(planResponse.data.data || []);
+      setProducts(productResponse.data.data || []);
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || "Unable to load plans and products"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const filteredPlans = plans.filter((plan) =>
     `${plan.name} ${plan.billing_cycle}`
@@ -67,67 +93,52 @@ function Plans() {
     setShowForm(false);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (formData.name.trim().length < 2) {
-      alert("Plan name must contain at least 2 characters.");
+      toast.error("Plan name must contain at least 2 characters.");
       return;
     }
 
-    if (!formData.product_id) {
-      alert("Please select a product.");
+    if (!formData.product_id || Number(formData.price) <= 0) {
+      toast.error("Select a product and enter a valid price.");
       return;
     }
 
-    if (!Number.isFinite(Number(formData.price)) || Number(formData.price) <= 0) {
-      alert("Enter a valid plan price greater than zero.");
-      return;
-    }
-
-    if (!Number.isInteger(Number(formData.min_quantity)) || Number(formData.min_quantity) < 1) {
-      alert("Minimum quantity must be at least 1.");
-      return;
-    }
-
-    if (
-      formData.start_date &&
-      formData.end_date &&
-      formData.end_date < formData.start_date
-    ) {
-      alert("End date cannot be earlier than start date.");
-      return;
-    }
-
-    const selectedProduct = products.find(
-      (product) => String(product.id) === String(formData.product_id)
-    );
-
-    const cleanedData = {
-      ...formData,
+    const payload = {
       name: formData.name.trim(),
       product_id: Number(formData.product_id),
       price: Number(formData.price),
+      billing_cycle: formData.billing_cycle,
       min_quantity: Number(formData.min_quantity),
-      product_name: selectedProduct?.name || "Unknown product",
+      start_date: formData.start_date || null,
+      end_date: formData.end_date || null,
+      allow_pause: formData.allow_pause,
+      allow_early_close: formData.allow_early_close,
+      auto_close: formData.auto_close
     };
 
-    if (editingId) {
-      setPlans((previous) =>
-        previous.map((plan) =>
-          plan.id === editingId
-            ? { ...cleanedData, id: editingId }
-            : plan
-        )
-      );
-    } else {
-      setPlans((previous) => [
-        ...previous,
-        { ...cleanedData, id: Date.now() },
-      ]);
-    }
+    try {
+      setSaving(true);
 
-    resetForm();
+      if (editingId) {
+        await api.put(`/plans/${editingId}`, payload);
+        toast.success("Plan updated successfully!");
+      } else {
+        await api.post("/plans", payload);
+        toast.success("Plan created successfully!");
+      }
+
+      resetForm();
+      await fetchData();
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || "Unable to save plan."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleEdit = (plan) => {
@@ -247,7 +258,16 @@ function Plans() {
             </thead>
 
             <tbody>
-              {filteredPlans.length > 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan="6">
+                    <div className="customer-empty-state">
+                      <RefreshCw size={24} />
+                      <p>Loading plans...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredPlans.length > 0 ? (
                 filteredPlans.map((plan) => (
                   <tr key={plan.id}>
                     <td><strong>{plan.name}</strong></td>

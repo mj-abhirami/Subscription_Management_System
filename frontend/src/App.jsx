@@ -15,7 +15,6 @@ import Login from "./pages/Login";
 import Customers from "./pages/Customers";
 import Products from "./pages/Products";
 import Plans from "./pages/Plans";
-import PlaceholderPage from "./pages/PlaceholderPage";
 import Subscriptions from "./pages/Subscriptions";
 import Quotations from "./pages/Quotations";
 import Invoices from "./pages/Invoices";
@@ -24,20 +23,51 @@ import Discounts from "./pages/Discounts";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 
-// Protect pages that require authentication
-function ProtectedRoute({ children }) {
-  const token = localStorage.getItem("subsight_token");
+// Customer portal
+import CustomerDashboard from "./pages/CustomerDashboard";
 
-  return token ? children : <Navigate to="/login" replace />;
+// Read authenticated user
+function getUser() {
+  try {
+    return JSON.parse(localStorage.getItem("subsight_user") || "null");
+  } catch {
+    return null;
+  }
 }
 
-// Redirect logged-in users away from Login
+// Protect routes
+function ProtectedRoute({ children, allowedRoles }) {
+  const token = localStorage.getItem("subsight_token");
+  const user = getUser();
+
+  if (!token || !user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return user.role === "customer"
+      ? <Navigate to="/customer-dashboard" replace />
+      : <Navigate to="/" replace />;
+  }
+
+  return children;
+}
+
+// Redirect authenticated users away from login
 function PublicRoute({ children }) {
   const token = localStorage.getItem("subsight_token");
+  const user = getUser();
 
-  return token ? <Navigate to="/" replace /> : children;
+  if (token && user) {
+    return user.role === "customer"
+      ? <Navigate to="/customer-dashboard" replace />
+      : <Navigate to="/" replace />;
+  }
+
+  return children;
 }
 
+// Admin and Staff layout
 function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -49,73 +79,32 @@ function AppLayout() {
       />
 
       <div className="main-layout">
-        <Topbar
-          onMenuClick={() => setSidebarOpen(true)}
-        />
+        <Topbar onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="main-content">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-
             <Route path="/customers" element={<Customers />} />
             <Route path="/products" element={<Products />} />
             <Route path="/plans" element={<Plans />} />
-
-            <Route
-              path="/subscriptions"
-              element={
-                <Subscriptions />
-              }
-            />
-
-            <Route
-              path="/quotations"
-              element={
-                <Quotations />
-              }
-            />
-
-            <Route
-              path="/invoices"
-              element={
-                <Invoices />
-              }
-            />
-
-            <Route
-              path="/payments"
-              element={
-                <Payments />
-              }
-            />
-
-            <Route
-              path="/discounts"
-              element={
-                <Discounts />
-              }
-            />
-
-            <Route
-              path="/analytics"
-              element={
-                <Analytics />
-              }
-            />
-
-            <Route
-              path="/settings"
-              element={
-                <Settings />
-              }
-            />
-
+            <Route path="/subscriptions" element={<Subscriptions />} />
+            <Route path="/quotations" element={<Quotations />} />
+            <Route path="/invoices" element={<Invoices />} />
+            <Route path="/payments" element={<Payments />} />
+            <Route path="/discounts" element={<Discounts />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
       </div>
     </div>
   );
+}
+
+// Customer layout
+function CustomerLayout() {
+  return <CustomerDashboard />;
 }
 
 function App() {
@@ -132,9 +121,18 @@ function App() {
         />
 
         <Route
+          path="/customer-dashboard/*"
+          element={
+            <ProtectedRoute allowedRoles={["customer"]}>
+              <CustomerDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/*"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["admin", "staff"]}>
               <AppLayout />
             </ProtectedRoute>
           }

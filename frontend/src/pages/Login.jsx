@@ -43,7 +43,11 @@ function Login() {
       localStorage.setItem("subsight_token", data.token);
       localStorage.setItem("subsight_user", JSON.stringify(data.user));
 
-      navigate("/", { replace: true });
+      if (data.user.role === "customer") {
+        navigate("/customer-dashboard", { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
     } catch (err) {
       setError(
         err.response?.data?.message ||
